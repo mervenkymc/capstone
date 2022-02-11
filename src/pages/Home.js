@@ -1,60 +1,334 @@
 import React from "react"
-import { Container, ProgressBar } from "react-bootstrap"
-import { theMovieApiKey, axiosInstance } from "../lib/axios/axiosInstance"
-import { Link } from "react-router-dom"
-import { useDispatch, useSelector } from "react-redux"
+import { Button, Container, InputGroup, ProgressBar } from "react-bootstrap"
+import { useSelector } from "react-redux"
+import { useFetchTrendingHook } from "../hooks/useFetchTrendingHook"
+import { useFetchDiscoverHook } from "../hooks/useFetchDiscoverHook"
+import { useSearchingHook } from "../hooks/useSearchHook"
+import { useDispatch } from "react-redux"
 import { allActions } from "../lib/redux/actions"
+import { useNavigate } from "react-router-dom"
+import {
+  Card,
+  CardBody,
+  CardContainer,
+  CardFooter,
+  CardHeader
+} from "../components/Card"
 export const Home = () => {
-  const [loadingDiscovers, setDiscoversLoading] = React.useState(true)
-  const [todayTrends, setTodayTrends] = React.useState(false)
-  const discovers = useSelector((state) => state.movieReducer.discoverMovies)
-  const trends = useSelector((state) => state.movieReducer.trendingMovies)
-  const [pagination, setPagination] = React.useState(1)
   const dispatch = useDispatch()
+  const navigate = useNavigate()
+  const favoritedMovies = useSelector(
+    (state) => state.userReducer.favoritesMovies
+  )
+  const watchedHistoryMovies = useSelector(
+    (state) => state.userReducer.watchedMovies
+  )
+  const [localPaginationNumber, setLocalPaginationNumber] = React.useState({
+    pagStartNum: 0,
+    pagEndNum: 5
+  })
+  const [isTodayTrends, setIsTodayTrends] = React.useState(true)
 
-  const fetchDiscovers = async () => {
-    try {
-      const res = await axiosInstance.get(
-        `discover/movie?api_key=${theMovieApiKey}&sort_by=popularity.desc&page=${pagination}`
-      )
-      dispatch(allActions.moviesAction.setDiscoverMovies(res.data))
-      setDiscoversLoading(false)
-    } catch (e) {
-      alert(e)
-      setDiscoversLoading(false)
+  const paginatedDiscovers = useFetchDiscoverHook(
+    localPaginationNumber.pagStartNum,
+    localPaginationNumber.pagEndNum
+  )
+  const paginatedTrends = useFetchTrendingHook(
+    localPaginationNumber.pagStartNum,
+    localPaginationNumber.pagEndNum,
+    isTodayTrends
+  )
+  const [searchForDiscover, searchedDiscoverObjOfArray, isDiscoverSearching] =
+    useSearchingHook(paginatedDiscovers)
+  const [searchForTrends, searcedTrendsObjOfArray, isTrendSearching] =
+    useSearchingHook(paginatedTrends)
+
+  const handleLocalPaginationChanges = (process) => {
+    if (process === "back" && localPaginationNumber.pagStartNum !== 0) {
+      return setLocalPaginationNumber((prevState) => {
+        return {
+          pagStartNum: prevState.pagStartNum - 5,
+          pagEndNum: prevState.pagEndNum - 5
+        }
+      })
     }
-  }
-  const fetchTrending = async () => {
-    try {
-      const res = await axiosInstance.get(
-        `trending/all/${
-          todayTrends ? "day" : "week"
-        }?api_key=${theMovieApiKey}&page=${pagination}`
-      )
-      dispatch(allActions.moviesAction.setTrendingMovies(res.data))
-      setDiscoversLoading(false)
-    } catch (e) {
-      alert(e)
-      setDiscoversLoading(false)
+    if (process === "next" && localPaginationNumber.pagEndNum < 20) {
+      return setLocalPaginationNumber((prevState) => {
+        return {
+          pagStartNum: prevState.pagStartNum + 5,
+          pagEndNum: prevState.pagEndNum + 5
+        }
+      })
     }
+    return
+  }
+  const handleAddFavoritesClick = (obj) => {
+    if (favoritedMovies.find(({ id }) => id === obj.id)) return
+    dispatch(allActions.userActions.addFavorites(obj))
+  }
+  const handleAddHistoryClick = (obj) => {
+    if (watchedHistoryMovies.find((movieObj) => movieObj.id === obj.id)) return
+    dispatch(allActions.userActions.addWatchedBefore(obj))
   }
 
-  React.useEffect(() => {
-    fetchDiscovers()
-    fetchTrending()
-  }, [])
+  if (!paginatedDiscovers || !paginatedTrends)
+    return <ProgressBar animated now={100} />
 
-  if (loadingDiscovers) return <ProgressBar animated now={100} />
-
-  console.log(discovers, trends)
+  console.log("trends", paginatedTrends, paginatedDiscovers)
   return (
     <Container>
-      <div className="container-fluid bg-light text-dark p-5">
-        {/* {discovers.results.map({adult,})=> {}} */}
-        <Link className="btn btn-primary" to="/products">
-          Click me!
-        </Link>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          width: "100%",
+          marginTop: "20px",
+          marginBottom: "20px"
+        }}
+      >
+        <div style={{ display: "flex" }}>
+          <label htmlFor="today">Today</label>
+          <input
+            onChange={() => {
+              setIsTodayTrends(true)
+            }}
+            id="today"
+            type="checkbox"
+            checked={isTodayTrends}
+          />
+          <label htmlFor="week">Week</label>
+          <input
+            onChange={() => {
+              setIsTodayTrends(false)
+            }}
+            id="week"
+            type="checkbox"
+            checked={!isTodayTrends}
+          />
+
+          <InputGroup style={{ marginLeft: "5px" }}>
+            <input
+              onChange={(e) => {
+                searchForDiscover(e.currentTarget.value)
+                searchForTrends(e.currentTarget.value)
+              }}
+              placeholder="search movie..."
+              className="form-control"
+              id="search"
+              type="search"
+            />
+          </InputGroup>
+        </div>
+        <div>
+          <Button onClick={() => handleLocalPaginationChanges("back")}>
+            {" "}
+            Back
+          </Button>
+          <Button onClick={() => handleLocalPaginationChanges("next")}>
+            {" "}
+            Next
+          </Button>
+        </div>
       </div>
+      {!isDiscoverSearching ? (
+        <div
+          style={{ display: "flex", overflowX: "scroll", overFlowY: "hidden" }}
+        >
+          {paginatedDiscovers.map((obj) => (
+            <CardContainer style={{ cursor: "pointer" }} key={obj.id}>
+              <CardHeader
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                {obj.title}
+              </CardHeader>
+              <CardBody
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                <img
+                  src={`https://image.tmdb.org/t/p/w300/${obj.poster_path}`}
+                  alt="_picture"
+                />
+              </CardBody>
+              <CardFooter>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleAddFavoritesClick(obj)
+                  }}
+                  disabled={favoritedMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                >
+                  Add favorites
+                </Button>
+                <Button
+                  type="button"
+                  disabled={watchedHistoryMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                  onClick={() => handleAddHistoryClick(obj)}
+                >
+                  Add watched history
+                </Button>
+              </CardFooter>
+            </CardContainer>
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{ display: "flex", overflowX: "scroll", overFlowY: "hidden" }}
+        >
+          {searchedDiscoverObjOfArray.map((obj) => (
+            <CardContainer style={{ cursor: "pointer" }} key={obj.id}>
+              <CardHeader
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                {obj.title}
+              </CardHeader>
+              <CardBody
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                <img
+                  src={`https://image.tmdb.org/t/p/w300/${obj.poster_path}`}
+                  alt="_picture"
+                />
+              </CardBody>
+              <CardFooter>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleAddFavoritesClick(obj)
+                  }}
+                  disabled={favoritedMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                >
+                  Add favorites
+                </Button>
+                <Button
+                  type="button"
+                  disabled={watchedHistoryMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                  onClick={() => handleAddHistoryClick(obj)}
+                >
+                  Add watched history
+                </Button>
+              </CardFooter>
+            </CardContainer>
+          ))}
+        </div>
+      )}
+      {!isTrendSearching ? (
+        <div
+          style={{ display: "flex", overflowX: "scroll", overflowY: "hidden" }}
+        >
+          {paginatedTrends.map((obj) => (
+            <CardContainer style={{ cursor: "pointer" }} key={obj.id}>
+              <CardHeader
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                {obj.title}
+              </CardHeader>
+              <CardBody
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                <img
+                  src={`https://image.tmdb.org/t/p/w300/${obj.poster_path}`}
+                  alt="_picture"
+                />
+              </CardBody>
+              <CardFooter>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleAddFavoritesClick(obj)
+                  }}
+                  disabled={favoritedMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                >
+                  Add favorites
+                </Button>
+                <Button
+                  type="button"
+                  disabled={watchedHistoryMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                  onClick={() => handleAddHistoryClick(obj)}
+                >
+                  Add watched history
+                </Button>
+              </CardFooter>
+            </CardContainer>
+          ))}
+        </div>
+      ) : (
+        <div
+          style={{ display: "flex", overflowX: "scroll", overflowY: "hidden" }}
+        >
+          {searcedTrendsObjOfArray.map((obj) => (
+            <CardContainer style={{ cursor: "pointer" }} key={obj.id}>
+              <CardHeader
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                {obj.title}
+              </CardHeader>
+              <CardBody
+                onClick={(e) => {
+                  navigate(`/detail/${obj.id}`)
+                }}
+              >
+                <img
+                  src={`https://image.tmdb.org/t/p/w300/${obj.poster_path}`}
+                  alt="_picture"
+                />
+              </CardBody>
+              <CardFooter>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleAddFavoritesClick(obj)
+                  }}
+                  disabled={favoritedMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                >
+                  Add favorites
+                </Button>
+                <Button
+                  type="button"
+                  disabled={watchedHistoryMovies.find(
+                    (movieObj) => movieObj.id === obj.id
+                  )}
+                  onClick={() => handleAddHistoryClick(obj)}
+                >
+                  Add watched history
+                </Button>
+              </CardFooter>
+            </CardContainer>
+          ))}
+        </div>
+      )}
+
     </Container>
   )
 }

@@ -1,3 +1,6 @@
 export * from "./Home"
 export * from "./NotFound404"
 export * from "./Login"
+export * from "./MoviePopular"
+export * from "./MovieTopRated"
+export * from "./Profile"

@@ -5,7 +5,7 @@ export const NavigationBar = () => {
   return (
     <Navbar bg="dark" variant="dark">
       <Container>
-        <Navbar.Brand>My Movie App</Navbar.Brand>
+        <Navbar.Brand>MovieMeave</Navbar.Brand>
         <Nav className="me-auto">
           <Nav.Link
             onClick={() => {
@@ -13,6 +13,28 @@ export const NavigationBar = () => {
             }}
           >
             Home
+          </Nav.Link>
+          <Nav.Link
+            onClick={() => {
+              navigate("/movie-popular")
+            }}
+          >
+            Popular
+          </Nav.Link>
+
+          <Nav.Link
+            onClick={() => {
+              navigate("/movie-top-rated")
+            }}
+          >
+            Top Rated
+          </Nav.Link>
+          <Nav.Link
+            onClick={() => {
+              navigate("/profile")
+            }}
+          >
+            Profile
           </Nav.Link>
         </Nav>
       </Container>
